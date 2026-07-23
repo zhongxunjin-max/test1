@@ -60,6 +60,21 @@
     opacity:0.9;
     margin-top:4px;
   }
+  .reset-btn{
+    background:var(--tape);
+    border:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:#8a2a1e;
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    transition:transform 0.15s ease;
+    white-space:nowrap;
+  }
+  .reset-btn:hover{transform:translateY(-2px);}
 
   .board{
     display:flex;
@@ -323,6 +338,7 @@
       <div class="board-title">📌 의견 게시판</div>
       <div class="board-sub" id="boardSub"></div>
     </div>
+    <button class="reset-btn" id="resetBtn">🗑️ 초기화</button>
   </div>
 
   <div class="board" id="board"></div>
@@ -404,21 +420,22 @@
   // retries once on failure so a brief network hiccup on refresh doesn't clear the board
   async function fetchAllNotes(allowRetry){
     if(allowRetry === undefined) allowRetry = true;
-    if(!supabaseClient) return allNotes || [];
+    if(!supabaseClient) return { ok:false, notes: allNotes || [], errorMsg: 'Supabase 연결 안 됨' };
     try{
       const { data, error } = await supabaseClient
         .from('notes')
         .select('*')
         .order('created_at', { ascending: true });
       if(error) throw error;
-      return (data || []).map(rowToNote);
+      return { ok:true, notes: (data || []).map(rowToNote) };
     }catch(e){
       console.error('불러오기 실패', e);
       if(allowRetry){
         await new Promise(r => setTimeout(r, 1500));
         return fetchAllNotes(false);
       }
-      return allNotes || [];
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      return { ok:false, notes: allNotes || [], errorMsg: msg };
     }
   }
 
@@ -489,8 +506,12 @@
     renderBoard();
   }
 
+  let lastLoadError = null;
+
   async function loadNotes(){
-    allNotes = await fetchAllNotes();
+    const result = await fetchAllNotes();
+    allNotes = result.notes;
+    lastLoadError = result.ok ? null : result.errorMsg;
     renderBoard();
   }
 
@@ -525,6 +546,8 @@
       boardSub.textContent = '⚠️ Supabase 연결 정보를 코드 상단에 입력해주세요 (SUPABASE_URL / SUPABASE_ANON_KEY)';
     }else if(supabaseLoadError){
       boardSub.textContent = '⚠️ 저장 기능을 불러오지 못했어요. 화면을 새로고침 해보세요.';
+    }else if(lastLoadError){
+      boardSub.textContent = '⚠️ 목록을 불러오지 못했어요: ' + lastLoadError;
     }
 
     boardEl.innerHTML = '';
@@ -629,7 +652,26 @@
     renderBoard();
   }
 
+  async function resetBoard(){
+    if(!confirm('정말 모든 포스트잇을 삭제하시겠어요?\n되돌릴 수 없어요.')) return;
+    if(!supabaseClient){
+      alert('저장 기능이 연결되어 있지 않아요.');
+      return;
+    }
+    try{
+      const { error } = await supabaseClient.from('notes').delete().not('id', 'is', null);
+      if(error) throw error;
+      allNotes = [];
+      renderBoard();
+    }catch(e){
+      console.error('초기화 실패', e);
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      alert('초기화 중 문제가 생겼어요:\n' + msg + '\n\nSupabase에서 삭제(delete) 정책이 추가되어 있는지 확인해주세요.');
+    }
+  }
+
   document.getElementById('fab').addEventListener('click', openWrite);
+  document.getElementById('resetBtn').addEventListener('click', resetBoard);
   document.getElementById('homeFromDetail').addEventListener('click', goHome);
   document.getElementById('homeFromWrite').addEventListener('click', goHome);
 
@@ -663,7 +705,9 @@
   setInterval(async () => {
     const anyOverlayActive = ALL_OVERLAYS.some(o => o.classList.contains('active'));
     if(anyOverlayActive) return;
-    allNotes = await fetchAllNotes();
+    const result = await fetchAllNotes();
+    allNotes = result.notes;
+    lastLoadError = result.ok ? null : result.errorMsg;
     renderBoard();
   }, 20000);
 
