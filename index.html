@@ -372,8 +372,21 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_HbYCM1qC4GTIKJ2_EeW-xA_Uv18Ol_4';
   // ===========================================================
 
-  const supabaseReady = SUPABASE_URL.includes('YOUR-PROJECT') === false && SUPABASE_ANON_KEY.includes('YOUR-ANON') === false;
-  const supabaseClient = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  const supabaseConfigured = SUPABASE_URL.includes('YOUR-PROJECT') === false && SUPABASE_ANON_KEY.includes('YOUR-ANON') === false;
+  let supabaseClient = null;
+  let supabaseLoadError = false;
+  try{
+    if(supabaseConfigured && window.supabase && typeof window.supabase.createClient === 'function'){
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }else if(supabaseConfigured){
+      // the CDN script for @supabase/supabase-js didn't load in time (network/blocker issue)
+      supabaseLoadError = true;
+    }
+  }catch(e){
+    console.error('Supabase 초기화 실패', e);
+    supabaseLoadError = true;
+  }
+  const supabaseReady = !!supabaseClient;
 
   function rowToNote(row){
     return {
@@ -411,7 +424,9 @@
 
   // insert a single note row (id/createdAt are generated client-side, no DB defaults needed)
   async function insertNote(note){
-    if(!supabaseClient) return note;
+    if(!supabaseClient){
+      return { ok:false, note, errorMsg: 'Supabase가 연결되지 않았어요 (저장 기능 로딩 실패).' };
+    }
     try{
       const { data, error } = await supabaseClient
         .from('notes')
@@ -427,10 +442,11 @@
         .select()
         .single();
       if(error) throw error;
-      return rowToNote(data);
+      return { ok:true, note: rowToNote(data) };
     }catch(e){
       console.error('저장 실패', e);
-      return note;
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      return { ok:false, note, errorMsg: msg };
     }
   }
 
@@ -505,8 +521,10 @@
 
   function renderBoard(){
     boardSub.textContent = '전체 포스트잇 · 포스트잇을 눌러서 자세히 보세요';
-    if(!supabaseReady){
+    if(!supabaseConfigured){
       boardSub.textContent = '⚠️ Supabase 연결 정보를 코드 상단에 입력해주세요 (SUPABASE_URL / SUPABASE_ANON_KEY)';
+    }else if(supabaseLoadError){
+      boardSub.textContent = '⚠️ 저장 기능을 불러오지 못했어요. 화면을 새로고침 해보세요.';
     }
 
     boardEl.innerHTML = '';
@@ -601,9 +619,12 @@
       createdAt: Date.now(),
       sessionKey: currentSessionKey()
     };
-    const saved = await insertNote(draft);
-    if(!allNotes.some(n => n.id === saved.id)){
-      allNotes.push(saved);
+    const result = await insertNote(draft);
+    if(!result.ok){
+      alert('저장 중 문제가 생겼어요:\n' + result.errorMsg + '\n\n일단 이 화면에는 보이지만, 다른 사람에게는 안 보이고 새로고침하면 사라질 수 있어요.');
+    }
+    if(!allNotes.some(n => n.id === result.note.id)){
+      allNotes.push(result.note);
     }
     renderBoard();
   }
