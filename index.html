@@ -60,21 +60,6 @@
     opacity:0.9;
     margin-top:4px;
   }
-  .menu-btn{
-    background:var(--tape);
-    border:none;
-    padding:12px 18px;
-    border-radius:10px;
-    font-family:'Gaegu', sans-serif;
-    font-weight:700;
-    font-size:16px;
-    color:var(--ink);
-    cursor:pointer;
-    box-shadow:0 3px 8px rgba(0,0,0,0.3);
-    transition:transform 0.15s ease;
-    white-space:nowrap;
-  }
-  .menu-btn:hover{transform:translateY(-2px);}
 
   .board{
     display:flex;
@@ -317,103 +302,10 @@
     margin-top:8px;
   }
 
-  .list-card{
-    width:min(420px, 90vw);
-    max-height:78vh;
-    overflow-y:auto;
-    background:#fdf6e3;
-    padding:30px 22px 22px;
-    border-radius:10px;
-    box-shadow:0 20px 50px rgba(0,0,0,0.5);
-    animation:pop-in 0.25s ease;
-  }
-  .list-title{
-    font-family:'Gaegu', sans-serif;
-    font-size:23px;
-    text-align:center;
-    margin-bottom:16px;
-    color:var(--ink);
-  }
-  .list-empty{
-    text-align:center;
-    font-family:'Gaegu', sans-serif;
-    font-size:17px;
-    color:var(--ink-soft);
-    padding:30px 10px;
-  }
-  .session-item{
-    padding:14px 10px;
-    border-bottom:1px dashed rgba(58,46,34,0.25);
-    cursor:pointer;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:10px;
-    transition:background 0.12s ease;
-    border-radius:6px;
-  }
-  .session-item:hover{background:rgba(58,46,34,0.06);}
-  .session-item:last-child{border-bottom:none;}
-  .session-item .s-date{
-    font-family:'Gaegu', sans-serif;
-    font-size:19px;
-    color:var(--ink);
-  }
-  .session-item .s-count{
-    font-family:'Noto Sans KR', sans-serif;
-    font-size:12px;
-    color:var(--ink-soft);
-    background:rgba(58,46,34,0.08);
-    padding:3px 9px;
-    border-radius:20px;
-    white-space:nowrap;
-  }
-
-  .session-view-card{
-    width:min(920px, 94vw);
-    max-height:88vh;
-    overflow-y:auto;
-    background:linear-gradient(160deg, var(--cork-1), var(--cork-2));
-    padding:64px 26px 40px;
-    border-radius:12px;
-    position:relative;
-    box-shadow:0 20px 50px rgba(0,0,0,0.5);
-    animation:pop-in 0.25s ease;
-  }
-  .back-btn{
-    position:absolute;
-    top:18px; left:20px;
-    background:var(--tape);
-    border:none;
-    padding:9px 16px;
-    border-radius:8px;
-    font-family:'Gaegu', sans-serif;
-    font-weight:700;
-    font-size:15px;
-    cursor:pointer;
-    box-shadow:0 3px 8px rgba(0,0,0,0.3);
-    z-index:5;
-  }
-  .session-view-title{
-    text-align:center;
-    font-family:'Gaegu', sans-serif;
-    font-size:25px;
-    color:#fff8e8;
-    text-shadow:0 2px 6px rgba(0,0,0,0.35);
-    margin-bottom:18px;
-  }
-  .session-board{
-    display:flex;
-    flex-wrap:wrap;
-    gap:22px;
-    justify-content:center;
-    padding:4px;
-  }
-
   .visually-hidden{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
 
   @media (prefers-reduced-motion: reduce){
-    .postit, .detail-card, .write-card, .list-card, .session-view-card{animation:none !important; opacity:1 !important;}
+    .postit, .detail-card, .write-card{animation:none !important; opacity:1 !important;}
   }
 
   @media (max-width:600px){
@@ -431,7 +323,6 @@
       <div class="board-title">📌 의견 게시판</div>
       <div class="board-sub" id="boardSub"></div>
     </div>
-    <button class="menu-btn" id="pastMeetingsBtn">🗂️ 이전 미팅 보기</button>
   </div>
 
   <div class="board" id="board"></div>
@@ -458,23 +349,6 @@
       <div class="write-actions">
         <button class="btn btn-primary" id="doneBtn">완료</button>
       </div>
-    </div>
-  </div>
-
-  <div class="overlay" id="sessionListOverlay">
-    <button class="home-btn" id="homeFromList" aria-label="홈으로">🏠</button>
-    <div class="list-card">
-      <div class="list-title">🗂️ 이전 미팅 보기</div>
-      <div id="listItems"></div>
-    </div>
-  </div>
-
-  <div class="overlay" id="sessionViewOverlay">
-    <button class="home-btn" id="homeFromSessionView" aria-label="홈으로">🏠</button>
-    <div class="session-view-card">
-      <button class="back-btn" id="backToList">← 목록으로</button>
-      <div class="session-view-title" id="sessionViewTitle"></div>
-      <div class="board session-board" id="sessionBoard"></div>
     </div>
   </div>
 
@@ -514,7 +388,9 @@
   }
 
   // fetch the full shared board from Supabase (all devices read/write the same table)
-  async function fetchAllNotes(){
+  // retries once on failure so a brief network hiccup on refresh doesn't clear the board
+  async function fetchAllNotes(allowRetry){
+    if(allowRetry === undefined) allowRetry = true;
     if(!supabaseClient) return allNotes || [];
     try{
       const { data, error } = await supabaseClient
@@ -525,6 +401,10 @@
       return (data || []).map(rowToNote);
     }catch(e){
       console.error('불러오기 실패', e);
+      if(allowRetry){
+        await new Promise(r => setTimeout(r, 1500));
+        return fetchAllNotes(false);
+      }
       return allNotes || [];
     }
   }
@@ -559,6 +439,7 @@
 
   function pad2(n){ return String(n).padStart(2, '0'); }
 
+  // still stamped on each note (DB column is NOT NULL) but no longer used to filter the UI
   function sessionKeyFor(ts){
     const d = new Date(ts);
     const hb = Math.floor(d.getHours() / 2) * 2;
@@ -569,35 +450,18 @@
     return sessionKeyFor(Date.now());
   }
 
-  const WEEKDAYS = ['일','월','화','수','목','금','토'];
-
-  function sessionLabel(key){
-    const [datePart, hbPart] = key.split('_');
-    const [y, m, d] = datePart.split('-').map(Number);
-    const hb = Number(hbPart);
-    const dateObj = new Date(y, m - 1, d);
-    const wd = WEEKDAYS[dateObj.getDay()];
-    const endH = (hb + 2) % 24;
-    return `${m}월 ${d}일 (${wd}) ${pad2(hb)}:00~${pad2(endH)}:00`;
-  }
-
   const boardEl = document.getElementById('board');
   const boardSub = document.getElementById('boardSub');
   const detailOverlay = document.getElementById('detailOverlay');
   const writeOverlay = document.getElementById('writeOverlay');
-  const sessionListOverlay = document.getElementById('sessionListOverlay');
-  const sessionViewOverlay = document.getElementById('sessionViewOverlay');
   const detailText = document.getElementById('detailText');
   const detailAuthor = document.getElementById('detailAuthor');
   const detailTime = document.getElementById('detailTime');
   const swatchesEl = document.getElementById('swatches');
   const noteInput = document.getElementById('noteInput');
   const authorInput = document.getElementById('authorInput');
-  const listItems = document.getElementById('listItems');
-  const sessionBoard = document.getElementById('sessionBoard');
-  const sessionViewTitle = document.getElementById('sessionViewTitle');
 
-  const ALL_OVERLAYS = [detailOverlay, writeOverlay, sessionListOverlay, sessionViewOverlay];
+  const ALL_OVERLAYS = [detailOverlay, writeOverlay];
 
   function showOverlay(el){
     ALL_OVERLAYS.forEach(o => o.classList.remove('active'));
@@ -640,24 +504,22 @@
   }
 
   function renderBoard(){
-    const curKey = currentSessionKey();
-    boardSub.textContent = `현재 미팅 · ${sessionLabel(curKey)} · 포스트잇을 눌러서 자세히 보세요`;
+    boardSub.textContent = '전체 포스트잇 · 포스트잇을 눌러서 자세히 보세요';
     if(!supabaseReady){
       boardSub.textContent = '⚠️ Supabase 연결 정보를 코드 상단에 입력해주세요 (SUPABASE_URL / SUPABASE_ANON_KEY)';
     }
-    const currentNotes = allNotes.filter(n => (n.sessionKey || sessionKeyFor(n.createdAt)) === curKey);
 
     boardEl.innerHTML = '';
-    if(!currentNotes.length){
+    if(!allNotes.length){
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.innerHTML = '아직 이번 미팅에 붙은 포스트잇이 없어요.<br>첫 의견을 남겨보세요!<br>' +
+      empty.innerHTML = '아직 붙은 포스트잇이 없어요.<br>첫 의견을 남겨보세요!<br>' +
         '<button class="btn btn-primary" id="emptyAddBtn">+ 글 남기기</button>';
       boardEl.appendChild(empty);
       document.getElementById('emptyAddBtn').addEventListener('click', openWrite);
       return;
     }
-    currentNotes.slice().reverse().forEach((note, idx) => {
+    allNotes.slice().reverse().forEach((note, idx) => {
       boardEl.appendChild(buildPostitEl(note, idx));
     });
   }
@@ -672,10 +534,38 @@
   }
   detailOverlay.addEventListener('click', goHome);
 
+  const DRAFT_KEY = 'postit-draft-v1';
+
+  function saveDraft(){
+    try{
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        text: noteInput.value,
+        author: authorInput.value,
+        color: selectedColor
+      }));
+    }catch(e){ /* ignore */ }
+  }
+  function loadDraft(){
+    try{
+      const raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function clearDraft(){
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){ /* ignore */ }
+  }
+
   function openWrite(){
-    noteInput.value = '';
-    authorInput.value = '';
-    selectedColor = COLORS[Math.floor(Math.random()*COLORS.length)].hex;
+    const draft = loadDraft();
+    if(draft && (draft.text || draft.author)){
+      noteInput.value = draft.text || '';
+      authorInput.value = draft.author || '';
+      selectedColor = draft.color || COLORS[0].hex;
+    }else{
+      noteInput.value = '';
+      authorInput.value = '';
+      selectedColor = COLORS[Math.floor(Math.random()*COLORS.length)].hex;
+    }
     renderSwatches();
     document.getElementById('writeCard').style.background = selectedColor;
     showOverlay(writeOverlay);
@@ -692,10 +582,14 @@
         selectedColor = c.hex;
         document.getElementById('writeCard').style.background = c.hex;
         renderSwatches();
+        saveDraft();
       });
       swatchesEl.appendChild(s);
     });
   }
+
+  noteInput.addEventListener('input', saveDraft);
+  authorInput.addEventListener('input', saveDraft);
 
   async function saveNote(text, author, color){
     const draft = {
@@ -714,67 +608,9 @@
     renderBoard();
   }
 
-  async function openSessionList(){
-    allNotes = await fetchAllNotes();
-    const curKey = currentSessionKey();
-    const counts = {};
-    allNotes.forEach(n => {
-      const k = n.sessionKey || sessionKeyFor(n.createdAt);
-      if(k === curKey) return;
-      counts[k] = (counts[k] || 0) + 1;
-    });
-    const keys = Object.keys(counts).sort().reverse();
-
-    listItems.innerHTML = '';
-    if(!keys.length){
-      const empty = document.createElement('div');
-      empty.className = 'list-empty';
-      empty.textContent = '아직 지난 미팅 기록이 없어요.';
-      listItems.appendChild(empty);
-    }else{
-      keys.forEach(k => {
-        const item = document.createElement('div');
-        item.className = 'session-item';
-        item.innerHTML = `
-          <span class="s-date"></span>
-          <span class="s-count"></span>
-        `;
-        item.querySelector('.s-date').textContent = sessionLabel(k);
-        item.querySelector('.s-count').textContent = counts[k] + '개';
-        item.addEventListener('click', () => openSessionView(k));
-        listItems.appendChild(item);
-      });
-    }
-    showOverlay(sessionListOverlay);
-  }
-
-  function openSessionView(key){
-    sessionViewTitle.textContent = sessionLabel(key);
-    const notesForSession = allNotes.filter(n => (n.sessionKey || sessionKeyFor(n.createdAt)) === key);
-    sessionBoard.innerHTML = '';
-    if(!notesForSession.length){
-      const empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = '이 미팅에는 남겨진 의견이 없어요.';
-      sessionBoard.appendChild(empty);
-    }else{
-      notesForSession.slice().reverse().forEach((note, idx) => {
-        sessionBoard.appendChild(buildPostitEl(note, idx));
-      });
-    }
-    showOverlay(sessionViewOverlay);
-  }
-
   document.getElementById('fab').addEventListener('click', openWrite);
   document.getElementById('homeFromDetail').addEventListener('click', goHome);
   document.getElementById('homeFromWrite').addEventListener('click', goHome);
-  document.getElementById('homeFromList').addEventListener('click', goHome);
-  document.getElementById('homeFromSessionView').addEventListener('click', goHome);
-  document.getElementById('pastMeetingsBtn').addEventListener('click', openSessionList);
-  document.getElementById('backToList').addEventListener('click', (e) => {
-    e.stopPropagation();
-    openSessionList();
-  });
 
   document.getElementById('doneBtn').addEventListener('click', async () => {
     const text = noteInput.value.trim();
@@ -784,6 +620,7 @@
     }
     const author = authorInput.value.trim();
     await saveNote(text, author, selectedColor);
+    clearDraft();
     goHome();
   });
 
@@ -810,6 +647,10 @@
   }, 20000);
 
   loadNotes();
+  const existingDraft = loadDraft();
+  if(existingDraft && (existingDraft.text || existingDraft.author)){
+    openWrite();
+  }
 })();
 </script>
 </body>
