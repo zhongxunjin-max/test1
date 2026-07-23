@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>의견 게시판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --cork-1:#8a5a34;
+    --cork-2:#6e4626;
+    --ink:#3a2e22;
+    --ink-soft:#5c4a38;
+    --paper-yellow:#fbe38b;
+    --paper-pink:#f6c9d9;
+    --paper-blue:#b9dcf0;
+    --paper-green:#c3e6c0;
+    --paper-orange:#f6c99b;
+    --paper-purple:#dcc9ec;
+    --tape:#fffdf5cc;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    font-family:'Noto Sans KR', sans-serif;
+    color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 30%, rgba(0,0,0,0.06) 0, transparent 3px),
+      radial-gradient(circle at 60% 70%, rgba(0,0,0,0.05) 0, transparent 3px),
+      radial-gradient(circle at 80% 20%, rgba(0,0,0,0.05) 0, transparent 3px),
+      radial-gradient(circle at 40% 85%, rgba(0,0,0,0.05) 0, transparent 3px),
+      radial-gradient(circle at 90% 60%, rgba(0,0,0,0.05) 0, transparent 3px),
+      linear-gradient(160deg, var(--cork-1), var(--cork-2));
+    background-size: 40px 40px, 55px 55px, 35px 35px, 60px 60px, 45px 45px, cover;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  .board-header{
+    padding:28px 32px 8px;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .board-title{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:34px;
+    color:#fff8e8;
+    text-shadow:0 2px 6px rgba(0,0,0,0.35);
+    letter-spacing:0.5px;
+  }
+  .board-sub{
+    font-size:13px;
+    color:#f2e4c9;
+    opacity:0.9;
+    margin-top:4px;
+  }
+  .menu-btn{
+    background:var(--tape);
+    border:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    transition:transform 0.15s ease;
+    white-space:nowrap;
+  }
+  .menu-btn:hover{transform:translateY(-2px);}
+
+  .board{
+    display:flex;
+    flex-wrap:wrap;
+    gap:26px;
+    padding:20px 40px 140px;
+    align-items:flex-start;
+  }
+  .empty-state{
+    width:100%;
+    text-align:center;
+    color:#fbeed6;
+    font-family:'Gaegu', sans-serif;
+    font-size:22px;
+    margin-top:80px;
+    opacity:0.9;
+  }
+  .empty-state button{margin-top:18px;}
+
+  .postit{
+    width:210px;
+    min-height:210px;
+    padding:26px 18px 18px;
+    position:relative;
+    cursor:pointer;
+    font-family:'Gaegu', sans-serif;
+    font-size:19px;
+    line-height:1.45;
+    color:var(--ink);
+    box-shadow:3px 6px 14px rgba(0,0,0,0.35);
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+    display:flex;
+    flex-direction:column;
+    opacity:0;
+    animation:pin-in 0.45s ease forwards;
+  }
+  @keyframes pin-in{
+    from{opacity:0; transform:translateY(14px) scale(0.92) rotate(var(--rot));}
+    to{opacity:1; transform:translateY(0) scale(1) rotate(var(--rot));}
+  }
+  .postit:hover{
+    transform:rotate(0deg) scale(1.05) translateY(-4px) !important;
+    box-shadow:5px 10px 22px rgba(0,0,0,0.4);
+    z-index:5;
+  }
+  .postit .tape{
+    position:absolute;
+    top:-12px;
+    left:50%;
+    width:70px;
+    height:26px;
+    background:var(--tape);
+    transform:translateX(-50%) rotate(-3deg);
+    box-shadow:0 2px 4px rgba(0,0,0,0.2);
+  }
+  .postit .note-text{
+    flex:1;
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:6;
+    -webkit-box-orient:vertical;
+    word-break:break-word;
+  }
+  .postit .note-author{
+    margin-top:10px;
+    font-size:14px;
+    color:var(--ink-soft);
+    text-align:right;
+    font-family:'Noto Sans KR', sans-serif;
+  }
+
+  .fab{
+    position:fixed;
+    bottom:30px;
+    right:34px;
+    background:var(--paper-yellow);
+    color:var(--ink);
+    border:none;
+    border-radius:50px;
+    padding:16px 24px;
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:18px;
+    box-shadow:0 6px 16px rgba(0,0,0,0.4);
+    cursor:pointer;
+    transition:transform 0.15s ease;
+    z-index:40;
+  }
+  .fab:hover{transform:translateY(-3px) scale(1.03);}
+
+  .home-btn{
+    position:fixed;
+    top:22px;
+    left:26px;
+    background:var(--tape);
+    border:none;
+    border-radius:50%;
+    width:52px;
+    height:52px;
+    font-size:22px;
+    cursor:pointer;
+    box-shadow:0 4px 10px rgba(0,0,0,0.3);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:150;
+    transition:transform 0.15s ease;
+  }
+  .home-btn:hover{transform:scale(1.08);}
+
+  .overlay{
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    background:rgba(40,26,14,0.55);
+    backdrop-filter:blur(2px);
+  }
+  .overlay.active{display:flex;}
+
+  .detail-card{
+    width:min(560px, 88vw);
+    max-height:80vh;
+    padding:46px 40px 34px;
+    position:relative;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    font-family:'Gaegu', sans-serif;
+    display:flex;
+    flex-direction:column;
+    animation:pop-in 0.25s ease;
+    cursor:pointer;
+  }
+  @keyframes pop-in{
+    from{opacity:0; transform:scale(0.9);}
+    to{opacity:1; transform:scale(1);}
+  }
+  .detail-card .tape{
+    position:absolute; top:-14px; left:50%;
+    width:90px; height:30px;
+    background:var(--tape);
+    transform:translateX(-50%) rotate(-2deg);
+    box-shadow:0 2px 4px rgba(0,0,0,0.25);
+  }
+  .detail-text{
+    font-size:26px;
+    line-height:1.55;
+    overflow-y:auto;
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  .detail-author{
+    margin-top:22px;
+    text-align:right;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:15px;
+    color:var(--ink-soft);
+  }
+  .detail-time{
+    text-align:right;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+    opacity:0.7;
+  }
+
+  .btn{
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:18px;
+    padding:10px 26px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.25);
+    transition:transform 0.12s ease;
+  }
+  .btn:hover{transform:translateY(-2px);}
+  .btn-primary{background:var(--ink); color:#fdf6e3;}
+  .btn-secondary{background:#fff; color:var(--ink);}
+
+  .write-card{
+    width:min(480px, 90vw);
+    min-height:420px;
+    padding:50px 34px 26px;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    font-family:'Gaegu', sans-serif;
+    animation:pop-in 0.25s ease;
+  }
+  .write-card .tape{
+    position:absolute; top:-14px; left:50%;
+    width:90px; height:30px;
+    background:var(--tape);
+    transform:translateX(-50%) rotate(-2deg);
+    box-shadow:0 2px 4px rgba(0,0,0,0.25);
+  }
+  .write-card textarea{
+    flex:1;
+    resize:none;
+    border:none;
+    background:transparent;
+    outline:none;
+    font-family:'Gaegu', sans-serif;
+    font-size:22px;
+    line-height:1.5;
+    color:var(--ink);
+    min-height:180px;
+  }
+  .write-card input[type="text"]{
+    border:none;
+    border-bottom:1.5px dashed var(--ink-soft);
+    background:transparent;
+    outline:none;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+    padding:6px 2px;
+    margin-bottom:14px;
+  }
+  .swatches{
+    display:flex;
+    gap:10px;
+    margin:14px 0 20px;
+  }
+  .swatch{
+    width:28px; height:28px;
+    border-radius:50%;
+    cursor:pointer;
+    border:2px solid transparent;
+    box-shadow:0 2px 5px rgba(0,0,0,0.25);
+  }
+  .swatch.selected{border-color:var(--ink);}
+  .write-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-top:8px;
+  }
+
+  .list-card{
+    width:min(420px, 90vw);
+    max-height:78vh;
+    overflow-y:auto;
+    background:#fdf6e3;
+    padding:30px 22px 22px;
+    border-radius:10px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    animation:pop-in 0.25s ease;
+  }
+  .list-title{
+    font-family:'Gaegu', sans-serif;
+    font-size:23px;
+    text-align:center;
+    margin-bottom:16px;
+    color:var(--ink);
+  }
+  .list-empty{
+    text-align:center;
+    font-family:'Gaegu', sans-serif;
+    font-size:17px;
+    color:var(--ink-soft);
+    padding:30px 10px;
+  }
+  .session-item{
+    padding:14px 10px;
+    border-bottom:1px dashed rgba(58,46,34,0.25);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    transition:background 0.12s ease;
+    border-radius:6px;
+  }
+  .session-item:hover{background:rgba(58,46,34,0.06);}
+  .session-item:last-child{border-bottom:none;}
+  .session-item .s-date{
+    font-family:'Gaegu', sans-serif;
+    font-size:19px;
+    color:var(--ink);
+  }
+  .session-item .s-count{
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:12px;
+    color:var(--ink-soft);
+    background:rgba(58,46,34,0.08);
+    padding:3px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+
+  .session-view-card{
+    width:min(920px, 94vw);
+    max-height:88vh;
+    overflow-y:auto;
+    background:linear-gradient(160deg, var(--cork-1), var(--cork-2));
+    padding:64px 26px 40px;
+    border-radius:12px;
+    position:relative;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    animation:pop-in 0.25s ease;
+  }
+  .back-btn{
+    position:absolute;
+    top:18px; left:20px;
+    background:var(--tape);
+    border:none;
+    padding:9px 16px;
+    border-radius:8px;
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    z-index:5;
+  }
+  .session-view-title{
+    text-align:center;
+    font-family:'Gaegu', sans-serif;
+    font-size:25px;
+    color:#fff8e8;
+    text-shadow:0 2px 6px rgba(0,0,0,0.35);
+    margin-bottom:18px;
+  }
+  .session-board{
+    display:flex;
+    flex-wrap:wrap;
+    gap:22px;
+    justify-content:center;
+    padding:4px;
+  }
+
+  .visually-hidden{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);}
+
+  @media (prefers-reduced-motion: reduce){
+    .postit, .detail-card, .write-card, .list-card, .session-view-card{animation:none !important; opacity:1 !important;}
+  }
+
+  @media (max-width:600px){
+    .board{padding:16px 16px 140px; gap:16px; justify-content:center;}
+    .postit{width:44vw; min-height:44vw;}
+    .board-title{font-size:26px;}
+    .board-header{padding:20px 18px 8px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="board-header">
+    <div>
+      <div class="board-title">📌 의견 게시판</div>
+      <div class="board-sub" id="boardSub"></div>
+    </div>
+    <button class="menu-btn" id="pastMeetingsBtn">🗂️ 이전 미팅 보기</button>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <button class="fab" id="fab">+ 글 남기기</button>
+
+  <div class="overlay" id="detailOverlay">
+    <button class="home-btn" id="homeFromDetail" aria-label="홈으로">🏠</button>
+    <div class="detail-card" id="detailCard">
+      <div class="tape"></div>
+      <div class="detail-text" id="detailText"></div>
+      <div class="detail-author" id="detailAuthor"></div>
+      <div class="detail-time" id="detailTime"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="writeOverlay">
+    <button class="home-btn" id="homeFromWrite" aria-label="홈으로">🏠</button>
+    <div class="write-card" id="writeCard">
+      <div class="tape"></div>
+      <input type="text" id="authorInput" placeholder="이름 (선택사항)" maxlength="20">
+      <textarea id="noteInput" placeholder="여기에 의견을 적어주세요..." maxlength="400"></textarea>
+      <div class="swatches" id="swatches"></div>
+      <div class="write-actions">
+        <button class="btn btn-primary" id="doneBtn">완료</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="sessionListOverlay">
+    <button class="home-btn" id="homeFromList" aria-label="홈으로">🏠</button>
+    <div class="list-card">
+      <div class="list-title">🗂️ 이전 미팅 보기</div>
+      <div id="listItems"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="sessionViewOverlay">
+    <button class="home-btn" id="homeFromSessionView" aria-label="홈으로">🏠</button>
+    <div class="session-view-card">
+      <button class="back-btn" id="backToList">← 목록으로</button>
+      <div class="session-view-title" id="sessionViewTitle"></div>
+      <div class="board session-board" id="sessionBoard"></div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const COLORS = [
+    {name:'yellow', hex:getComputedVar('--paper-yellow')},
+    {name:'pink', hex:getComputedVar('--paper-pink')},
+    {name:'blue', hex:getComputedVar('--paper-blue')},
+    {name:'green', hex:getComputedVar('--paper-green')},
+    {name:'orange', hex:getComputedVar('--paper-orange')},
+    {name:'purple', hex:getComputedVar('--paper-purple')},
+  ];
+
+  function getComputedVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // ===== Supabase 연결 정보 =====
+  const SUPABASE_URL = 'https://veogjowcrmlctxgfiobg.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_HbYCM1qC4GTIKJ2_EeW-xA_Uv18Ol_4';
+  // ===========================================================
+
+  const supabaseReady = SUPABASE_URL.includes('YOUR-PROJECT') === false && SUPABASE_ANON_KEY.includes('YOUR-ANON') === false;
+  const supabaseClient = supabaseReady ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  function rowToNote(row){
+    return {
+      id: row.id,
+      text: row.text,
+      author: row.author,
+      color: row.color,
+      rotation: row.rotation,
+      createdAt: Number(row.created_at),
+      sessionKey: row.session_key
+    };
+  }
+
+  // fetch the full shared board from Supabase (all devices read/write the same table)
+  async function fetchAllNotes(){
+    if(!supabaseClient) return allNotes || [];
+    try{
+      const { data, error } = await supabaseClient
+        .from('notes')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if(error) throw error;
+      return (data || []).map(rowToNote);
+    }catch(e){
+      console.error('불러오기 실패', e);
+      return allNotes || [];
+    }
+  }
+
+  // insert a single note row (id/createdAt are generated client-side, no DB defaults needed)
+  async function insertNote(note){
+    if(!supabaseClient) return note;
+    try{
+      const { data, error } = await supabaseClient
+        .from('notes')
+        .insert({
+          id: note.id,
+          text: note.text,
+          author: note.author,
+          color: note.color,
+          rotation: note.rotation,
+          created_at: note.createdAt,
+          session_key: note.sessionKey
+        })
+        .select()
+        .single();
+      if(error) throw error;
+      return rowToNote(data);
+    }catch(e){
+      console.error('저장 실패', e);
+      return note;
+    }
+  }
+
+  let allNotes = [];
+  let selectedColor = COLORS[0].hex;
+
+  function pad2(n){ return String(n).padStart(2, '0'); }
+
+  function sessionKeyFor(ts){
+    const d = new Date(ts);
+    const hb = Math.floor(d.getHours() / 2) * 2;
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}_${pad2(hb)}`;
+  }
+
+  function currentSessionKey(){
+    return sessionKeyFor(Date.now());
+  }
+
+  const WEEKDAYS = ['일','월','화','수','목','금','토'];
+
+  function sessionLabel(key){
+    const [datePart, hbPart] = key.split('_');
+    const [y, m, d] = datePart.split('-').map(Number);
+    const hb = Number(hbPart);
+    const dateObj = new Date(y, m - 1, d);
+    const wd = WEEKDAYS[dateObj.getDay()];
+    const endH = (hb + 2) % 24;
+    return `${m}월 ${d}일 (${wd}) ${pad2(hb)}:00~${pad2(endH)}:00`;
+  }
+
+  const boardEl = document.getElementById('board');
+  const boardSub = document.getElementById('boardSub');
+  const detailOverlay = document.getElementById('detailOverlay');
+  const writeOverlay = document.getElementById('writeOverlay');
+  const sessionListOverlay = document.getElementById('sessionListOverlay');
+  const sessionViewOverlay = document.getElementById('sessionViewOverlay');
+  const detailText = document.getElementById('detailText');
+  const detailAuthor = document.getElementById('detailAuthor');
+  const detailTime = document.getElementById('detailTime');
+  const swatchesEl = document.getElementById('swatches');
+  const noteInput = document.getElementById('noteInput');
+  const authorInput = document.getElementById('authorInput');
+  const listItems = document.getElementById('listItems');
+  const sessionBoard = document.getElementById('sessionBoard');
+  const sessionViewTitle = document.getElementById('sessionViewTitle');
+
+  const ALL_OVERLAYS = [detailOverlay, writeOverlay, sessionListOverlay, sessionViewOverlay];
+
+  function showOverlay(el){
+    ALL_OVERLAYS.forEach(o => o.classList.remove('active'));
+    if(el) el.classList.add('active');
+  }
+
+  function goHome(){
+    showOverlay(null);
+    renderBoard();
+  }
+
+  async function loadNotes(){
+    allNotes = await fetchAllNotes();
+    renderBoard();
+  }
+
+  function hashRotation(id){
+    let h = 0;
+    for(let i=0;i<id.length;i++){ h = (h*31 + id.charCodeAt(i)) % 1000; }
+    return (h % 13) - 6;
+  }
+
+  function buildPostitEl(note, idx){
+    const div = document.createElement('div');
+    div.className = 'postit';
+    const rot = note.rotation ?? hashRotation(note.id);
+    div.style.setProperty('--rot', rot + 'deg');
+    div.style.transform = `rotate(${rot}deg)`;
+    div.style.background = note.color || COLORS[0].hex;
+    div.style.animationDelay = (idx * 0.03) + 's';
+    div.innerHTML = `
+      <div class="tape"></div>
+      <div class="note-text"></div>
+      <div class="note-author"></div>
+    `;
+    div.querySelector('.note-text').textContent = note.text;
+    div.querySelector('.note-author').textContent = note.author ? '- ' + note.author : '';
+    div.addEventListener('click', () => openDetail(note));
+    return div;
+  }
+
+  function renderBoard(){
+    const curKey = currentSessionKey();
+    boardSub.textContent = `현재 미팅 · ${sessionLabel(curKey)} · 포스트잇을 눌러서 자세히 보세요`;
+    if(!supabaseReady){
+      boardSub.textContent = '⚠️ Supabase 연결 정보를 코드 상단에 입력해주세요 (SUPABASE_URL / SUPABASE_ANON_KEY)';
+    }
+    const currentNotes = allNotes.filter(n => (n.sessionKey || sessionKeyFor(n.createdAt)) === curKey);
+
+    boardEl.innerHTML = '';
+    if(!currentNotes.length){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = '아직 이번 미팅에 붙은 포스트잇이 없어요.<br>첫 의견을 남겨보세요!<br>' +
+        '<button class="btn btn-primary" id="emptyAddBtn">+ 글 남기기</button>';
+      boardEl.appendChild(empty);
+      document.getElementById('emptyAddBtn').addEventListener('click', openWrite);
+      return;
+    }
+    currentNotes.slice().reverse().forEach((note, idx) => {
+      boardEl.appendChild(buildPostitEl(note, idx));
+    });
+  }
+
+  function openDetail(note){
+    detailText.textContent = note.text;
+    detailAuthor.textContent = note.author ? '- ' + note.author : '';
+    const d = new Date(note.createdAt);
+    detailTime.textContent = isNaN(d) ? '' : d.toLocaleString('ko-KR');
+    document.getElementById('detailCard').style.background = note.color || COLORS[0].hex;
+    showOverlay(detailOverlay);
+  }
+  detailOverlay.addEventListener('click', goHome);
+
+  function openWrite(){
+    noteInput.value = '';
+    authorInput.value = '';
+    selectedColor = COLORS[Math.floor(Math.random()*COLORS.length)].hex;
+    renderSwatches();
+    document.getElementById('writeCard').style.background = selectedColor;
+    showOverlay(writeOverlay);
+    setTimeout(() => noteInput.focus(), 150);
+  }
+
+  function renderSwatches(){
+    swatchesEl.innerHTML = '';
+    COLORS.forEach(c => {
+      const s = document.createElement('div');
+      s.className = 'swatch' + (c.hex === selectedColor ? ' selected' : '');
+      s.style.background = c.hex;
+      s.addEventListener('click', () => {
+        selectedColor = c.hex;
+        document.getElementById('writeCard').style.background = c.hex;
+        renderSwatches();
+      });
+      swatchesEl.appendChild(s);
+    });
+  }
+
+  async function saveNote(text, author, color){
+    const draft = {
+      id: 'n' + Date.now() + '-' + Math.floor(Math.random()*10000),
+      text: text,
+      author: author,
+      color: color,
+      rotation: (Math.floor(Math.random()*13) - 6),
+      createdAt: Date.now(),
+      sessionKey: currentSessionKey()
+    };
+    const saved = await insertNote(draft);
+    if(!allNotes.some(n => n.id === saved.id)){
+      allNotes.push(saved);
+    }
+    renderBoard();
+  }
+
+  async function openSessionList(){
+    allNotes = await fetchAllNotes();
+    const curKey = currentSessionKey();
+    const counts = {};
+    allNotes.forEach(n => {
+      const k = n.sessionKey || sessionKeyFor(n.createdAt);
+      if(k === curKey) return;
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    const keys = Object.keys(counts).sort().reverse();
+
+    listItems.innerHTML = '';
+    if(!keys.length){
+      const empty = document.createElement('div');
+      empty.className = 'list-empty';
+      empty.textContent = '아직 지난 미팅 기록이 없어요.';
+      listItems.appendChild(empty);
+    }else{
+      keys.forEach(k => {
+        const item = document.createElement('div');
+        item.className = 'session-item';
+        item.innerHTML = `
+          <span class="s-date"></span>
+          <span class="s-count"></span>
+        `;
+        item.querySelector('.s-date').textContent = sessionLabel(k);
+        item.querySelector('.s-count').textContent = counts[k] + '개';
+        item.addEventListener('click', () => openSessionView(k));
+        listItems.appendChild(item);
+      });
+    }
+    showOverlay(sessionListOverlay);
+  }
+
+  function openSessionView(key){
+    sessionViewTitle.textContent = sessionLabel(key);
+    const notesForSession = allNotes.filter(n => (n.sessionKey || sessionKeyFor(n.createdAt)) === key);
+    sessionBoard.innerHTML = '';
+    if(!notesForSession.length){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = '이 미팅에는 남겨진 의견이 없어요.';
+      sessionBoard.appendChild(empty);
+    }else{
+      notesForSession.slice().reverse().forEach((note, idx) => {
+        sessionBoard.appendChild(buildPostitEl(note, idx));
+      });
+    }
+    showOverlay(sessionViewOverlay);
+  }
+
+  document.getElementById('fab').addEventListener('click', openWrite);
+  document.getElementById('homeFromDetail').addEventListener('click', goHome);
+  document.getElementById('homeFromWrite').addEventListener('click', goHome);
+  document.getElementById('homeFromList').addEventListener('click', goHome);
+  document.getElementById('homeFromSessionView').addEventListener('click', goHome);
+  document.getElementById('pastMeetingsBtn').addEventListener('click', openSessionList);
+  document.getElementById('backToList').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSessionList();
+  });
+
+  document.getElementById('doneBtn').addEventListener('click', async () => {
+    const text = noteInput.value.trim();
+    if(!text){
+      noteInput.focus();
+      return;
+    }
+    const author = authorInput.value.trim();
+    await saveNote(text, author, selectedColor);
+    goHome();
+  });
+
+  // real-time: instantly reflect notes added by other people/devices
+  if(supabaseClient){
+    supabaseClient
+      .channel('public:notes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notes' }, (payload) => {
+        const note = rowToNote(payload.new);
+        if(allNotes.some(n => n.id === note.id)) return;
+        allNotes.push(note);
+        const anyOverlayActive = ALL_OVERLAYS.some(o => o.classList.contains('active'));
+        if(!anyOverlayActive) renderBoard();
+      })
+      .subscribe();
+  }
+
+  // fallback safety net in case the real-time socket drops
+  setInterval(async () => {
+    const anyOverlayActive = ALL_OVERLAYS.some(o => o.classList.contains('active'));
+    if(anyOverlayActive) return;
+    allNotes = await fetchAllNotes();
+    renderBoard();
+  }, 20000);
+
+  loadNotes();
+})();
+</script>
+</body>
+</html>
