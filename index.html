@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
   :root{
     --cork-1:#8a5a34;
@@ -75,6 +76,154 @@
     white-space:nowrap;
   }
   .reset-btn:hover{transform:translateY(-2px);}
+
+  .admin-btn{
+    background:var(--tape);
+    border:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-family:'Gaegu', sans-serif;
+    font-weight:700;
+    font-size:16px;
+    color:var(--ink);
+    cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,0.3);
+    transition:transform 0.15s ease;
+    white-space:nowrap;
+  }
+  .admin-btn:hover{transform:translateY(-2px);}
+
+  .admin-card{
+    width:min(360px, 88vw);
+    padding:40px 30px 30px;
+    text-align:center;
+    position:relative;
+    background:var(--paper-yellow);
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    font-family:'Gaegu', sans-serif;
+    animation:pop-in 0.25s ease;
+    border-radius:4px;
+  }
+  .admin-card .tape{
+    position:absolute; top:-14px; left:50%;
+    width:80px; height:28px;
+    background:var(--tape);
+    transform:translateX(-50%) rotate(2deg);
+    box-shadow:0 2px 4px rgba(0,0,0,0.25);
+  }
+  .admin-card h3{
+    margin:0 0 18px;
+    font-size:23px;
+    color:var(--ink);
+  }
+  .admin-card input[type="password"]{
+    width:100%;
+    padding:12px 14px;
+    border:none;
+    border-radius:8px;
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:15px;
+    outline:none;
+    margin-bottom:16px;
+    box-shadow:inset 0 0 0 1.5px rgba(58,46,34,0.25);
+  }
+  .admin-card .admin-actions{
+    display:flex;
+    gap:10px;
+    justify-content:center;
+  }
+
+  .admin-panel-card{
+    width:min(480px, 90vw);
+    max-height:82vh;
+    overflow-y:auto;
+    background:#fdf6e3;
+    padding:30px 24px 24px;
+    border-radius:10px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    animation:pop-in 0.25s ease;
+    position:relative;
+  }
+  .admin-panel-title{
+    font-family:'Gaegu', sans-serif;
+    font-size:24px;
+    text-align:center;
+    margin-bottom:18px;
+    color:var(--ink);
+  }
+  .admin-panel-actions{
+    display:flex;
+    gap:10px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+  .admin-panel-actions .btn{
+    flex:1;
+    font-size:15px;
+    padding:10px 14px;
+  }
+  .admin-danger-btn{background:#8a2a1e; color:#fdf6e3;}
+  .admin-logout-btn{background:#fff; color:var(--ink); box-shadow:inset 0 0 0 1.5px rgba(58,46,34,0.25);}
+  .admin-section-title{
+    font-family:'Gaegu', sans-serif;
+    font-size:18px;
+    color:var(--ink-soft);
+    margin:6px 0 8px;
+  }
+  .capture-empty{
+    text-align:center;
+    font-family:'Gaegu', sans-serif;
+    font-size:16px;
+    color:var(--ink-soft);
+    padding:20px 10px;
+  }
+  .capture-item{
+    padding:12px 8px;
+    border-bottom:1px dashed rgba(58,46,34,0.25);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    border-radius:6px;
+    transition:background 0.12s ease;
+  }
+  .capture-item:hover{background:rgba(58,46,34,0.06);}
+  .capture-item:last-child{border-bottom:none;}
+  .capture-item .c-date{font-family:'Gaegu', sans-serif; font-size:17px; color:var(--ink);}
+  .capture-item .c-count{
+    font-family:'Noto Sans KR', sans-serif;
+    font-size:11px;
+    color:var(--ink-soft);
+    background:rgba(58,46,34,0.08);
+    padding:3px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+
+  .capture-view-card{
+    width:min(94vw, 900px);
+    max-height:92vh;
+    overflow:auto;
+    background:#1c130a;
+    padding:16px;
+    border-radius:10px;
+    position:relative;
+    box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    animation:pop-in 0.25s ease;
+  }
+  .capture-view-card img{
+    width:100%;
+    display:block;
+    border-radius:6px;
+  }
+  .capture-view-title{
+    text-align:center;
+    font-family:'Gaegu', sans-serif;
+    font-size:16px;
+    color:#fdf6e3;
+    margin-bottom:10px;
+  }
 
   .board{
     display:flex;
@@ -338,12 +487,49 @@
       <div class="board-title">📌 의견 게시판</div>
       <div class="board-sub" id="boardSub"></div>
     </div>
-    <button class="reset-btn" id="resetBtn">🗑️ 초기화</button>
+    <button class="admin-btn" id="adminBtn">🔑 관리</button>
   </div>
 
   <div class="board" id="board"></div>
 
   <button class="fab" id="fab">+ 글 남기기</button>
+
+  <div class="overlay" id="adminLoginOverlay">
+    <div class="admin-card">
+      <div class="tape"></div>
+      <h3>관리자 로그인</h3>
+      <input type="password" id="adminPasswordInput" placeholder="비밀번호" autocomplete="off">
+      <div class="admin-actions">
+        <button class="btn btn-secondary" id="adminLoginCancel">취소</button>
+        <button class="btn btn-primary" id="adminLoginSubmit">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="adminPanelOverlay">
+    <div class="admin-panel-card">
+      <div class="admin-panel-title">🔑 관리자 모드</div>
+      <div class="admin-panel-actions">
+        <button class="btn admin-danger-btn" id="adminResetBtn">🗑️ 초기화 (캡처 후 비우기)</button>
+      </div>
+      <div class="admin-panel-actions">
+        <button class="btn admin-logout-btn" id="adminLogoutBtn">🚪 Log out</button>
+        <button class="btn btn-secondary" id="adminPanelClose">닫기</button>
+      </div>
+      <div class="admin-section-title">📸 캡처된 화면 (날짜·시간별)</div>
+      <div id="captureListItems"></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="captureViewOverlay">
+    <div class="capture-view-card">
+      <div class="capture-view-title" id="captureViewTitle"></div>
+      <img id="captureViewImg" alt="캡처된 게시판 화면">
+      <div class="admin-panel-actions" style="margin-top:12px;">
+        <button class="btn btn-secondary" id="captureViewBack">← 목록으로</button>
+      </div>
+    </div>
+  </div>
 
   <div class="overlay" id="detailOverlay">
     <button class="home-btn" id="homeFromDetail" aria-label="홈으로">🏠</button>
@@ -652,8 +838,204 @@
     renderBoard();
   }
 
+  // ===== 관리자 모드 =====
+  // 비밀번호는 SHA-256 해시로만 저장되어 있어서 소스코드에 평문으로 보이지 않아요.
+  const ADMIN_PASSWORD_HASH = '53c4a1bb88af762137983176134cad0dd1d384604d904598aa6cf315358829f9';
+  const ADMIN_SESSION_KEY = 'postit-admin-session-v1';
+
+  async function sha256Hex(text){
+    const enc = new TextEncoder().encode(text);
+    const digest = await crypto.subtle.digest('SHA-256', enc);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function isAdminLoggedIn(){
+    try{ return sessionStorage.getItem(ADMIN_SESSION_KEY) === 'true'; }catch(e){ return false; }
+  }
+  function setAdminLoggedIn(v){
+    try{
+      if(v) sessionStorage.setItem(ADMIN_SESSION_KEY, 'true');
+      else sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }catch(e){ /* ignore */ }
+  }
+
+  const adminLoginOverlay = document.getElementById('adminLoginOverlay');
+  const adminPanelOverlay = document.getElementById('adminPanelOverlay');
+  const captureViewOverlay = document.getElementById('captureViewOverlay');
+  const adminPasswordInput = document.getElementById('adminPasswordInput');
+  const captureListItems = document.getElementById('captureListItems');
+  const captureViewImg = document.getElementById('captureViewImg');
+  const captureViewTitle = document.getElementById('captureViewTitle');
+
+  ALL_OVERLAYS.push(adminLoginOverlay, adminPanelOverlay, captureViewOverlay);
+
+  function openAdminLogin(){
+    adminPasswordInput.value = '';
+    showOverlay(adminLoginOverlay);
+    setTimeout(() => adminPasswordInput.focus(), 150);
+  }
+
+  async function submitAdminLogin(){
+    const entered = adminPasswordInput.value;
+    if(!entered){ adminPasswordInput.focus(); return; }
+    const hash = await sha256Hex(entered);
+    if(hash === ADMIN_PASSWORD_HASH){
+      setAdminLoggedIn(true);
+      openAdminPanel();
+    }else{
+      alert('비밀번호가 올바르지 않아요.');
+      adminPasswordInput.value = '';
+      adminPasswordInput.focus();
+    }
+  }
+
+  function captureLabel(ts){
+    const d = new Date(ts);
+    const wd = WEEKDAYS_KO[d.getDay()];
+    return `${d.getMonth()+1}월 ${d.getDate()}일 (${wd}) ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  const WEEKDAYS_KO = ['일','월','화','수','목','금','토'];
+
+  // save a full image capture of the board (base64 PNG) into Supabase
+  async function insertCapture(capturedAt, noteCount, imageDataUrl){
+    if(!supabaseClient) return { ok:false, errorMsg: 'Supabase 연결 안 됨' };
+    try{
+      const { error } = await supabaseClient
+        .from('captures')
+        .insert({
+          id: 'cap' + capturedAt + '-' + Math.floor(Math.random()*10000),
+          captured_at: capturedAt,
+          note_count: noteCount,
+          image_data: imageDataUrl
+        });
+      if(error) throw error;
+      return { ok:true };
+    }catch(e){
+      console.error('캡처 저장 실패', e);
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      return { ok:false, errorMsg: msg };
+    }
+  }
+
+  async function fetchCaptures(){
+    if(!supabaseClient) return { ok:false, captures: [], errorMsg: 'Supabase 연결 안 됨' };
+    try{
+      const { data, error } = await supabaseClient
+        .from('captures')
+        .select('id, captured_at, note_count')
+        .order('captured_at', { ascending: false });
+      if(error) throw error;
+      return { ok:true, captures: data || [] };
+    }catch(e){
+      console.error('캡처 목록 불러오기 실패', e);
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      return { ok:false, captures: [], errorMsg: msg };
+    }
+  }
+
+  async function fetchCaptureImage(id){
+    if(!supabaseClient) return { ok:false, errorMsg: 'Supabase 연결 안 됨' };
+    try{
+      const { data, error } = await supabaseClient
+        .from('captures')
+        .select('image_data')
+        .eq('id', id)
+        .single();
+      if(error) throw error;
+      return { ok:true, imageDataUrl: data.image_data };
+    }catch(e){
+      console.error('캡처 이미지 불러오기 실패', e);
+      const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
+      return { ok:false, errorMsg: msg };
+    }
+  }
+
+  async function openAdminPanel(){
+    showOverlay(adminPanelOverlay);
+    await refreshCaptureList();
+  }
+
+  async function refreshCaptureList(){
+    captureListItems.innerHTML = '<div class="capture-empty">불러오는 중...</div>';
+    const result = await fetchCaptures();
+    captureListItems.innerHTML = '';
+    if(!result.ok){
+      const empty = document.createElement('div');
+      empty.className = 'capture-empty';
+      empty.textContent = '⚠️ 불러오지 못했어요: ' + result.errorMsg;
+      captureListItems.appendChild(empty);
+      return;
+    }
+    if(!result.captures.length){
+      const empty = document.createElement('div');
+      empty.className = 'capture-empty';
+      empty.textContent = '아직 캡처된 화면이 없어요.';
+      captureListItems.appendChild(empty);
+      return;
+    }
+    result.captures.forEach(cap => {
+      const item = document.createElement('div');
+      item.className = 'capture-item';
+      item.innerHTML = `<span class="c-date"></span><span class="c-count"></span>`;
+      item.querySelector('.c-date').textContent = captureLabel(Number(cap.captured_at));
+      item.querySelector('.c-count').textContent = (cap.note_count ?? 0) + '개';
+      item.addEventListener('click', () => openCaptureView(cap.id, Number(cap.captured_at)));
+      captureListItems.appendChild(item);
+    });
+  }
+
+  async function openCaptureView(id, capturedAt){
+    captureViewTitle.textContent = captureLabel(capturedAt) + ' 캡처';
+    captureViewImg.removeAttribute('src');
+    showOverlay(captureViewOverlay);
+    const result = await fetchCaptureImage(id);
+    if(!result.ok){
+      alert('이미지를 불러오지 못했어요:\n' + result.errorMsg);
+      return;
+    }
+    captureViewImg.src = result.imageDataUrl;
+  }
+
+  function logoutAdmin(){
+    setAdminLoggedIn(false);
+    goHome();
+  }
+
+  // capture the current board as an image, save it, then clear the live board
   async function resetBoard(){
-    if(!confirm('정말 모든 포스트잇을 삭제하시겠어요?\n되돌릴 수 없어요.')) return;
+    if(!allNotes.length){
+      alert('현재 게시된 포스트잇이 없어요.');
+      return;
+    }
+    if(!confirm('현재 화면을 이미지로 저장한 뒤, 게시판을 비울게요.\n계속할까요?')) return;
+    if(typeof html2canvas !== 'function'){
+      alert('캡처 기능을 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');
+      return;
+    }
+
+    const capturedAt = Date.now();
+    const noteCount = allNotes.length;
+
+    let imageDataUrl;
+    try{
+      const canvas = await html2canvas(boardEl, {
+        backgroundColor: '#8a5a34',
+        useCORS: true,
+        scale: Math.min(window.devicePixelRatio || 1, 2)
+      });
+      imageDataUrl = canvas.toDataURL('image/png');
+    }catch(e){
+      console.error('화면 캡처 실패', e);
+      alert('화면 캡처 중 문제가 생겼어요:\n' + (e.message || e));
+      return;
+    }
+
+    const captureResult = await insertCapture(capturedAt, noteCount, imageDataUrl);
+    if(!captureResult.ok){
+      alert('캡처 저장 중 문제가 생겼어요:\n' + captureResult.errorMsg + '\n\n게시판은 비우지 않았어요.');
+      return;
+    }
+
     if(!supabaseClient){
       alert('저장 기능이 연결되어 있지 않아요.');
       return;
@@ -663,15 +1045,29 @@
       if(error) throw error;
       allNotes = [];
       renderBoard();
+      await refreshCaptureList();
+      alert('캡처를 저장하고 게시판을 비웠어요.');
     }catch(e){
       console.error('초기화 실패', e);
       const msg = (e && (e.message || e.error_description || e.hint)) || JSON.stringify(e);
-      alert('초기화 중 문제가 생겼어요:\n' + msg + '\n\nSupabase에서 삭제(delete) 정책이 추가되어 있는지 확인해주세요.');
+      alert('캡처는 저장됐지만, 게시판을 비우는 중 문제가 생겼어요:\n' + msg);
     }
   }
 
   document.getElementById('fab').addEventListener('click', openWrite);
-  document.getElementById('resetBtn').addEventListener('click', resetBoard);
+  document.getElementById('adminBtn').addEventListener('click', () => {
+    if(isAdminLoggedIn()) openAdminPanel();
+    else openAdminLogin();
+  });
+  document.getElementById('adminLoginCancel').addEventListener('click', goHome);
+  document.getElementById('adminLoginSubmit').addEventListener('click', submitAdminLogin);
+  adminPasswordInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') submitAdminLogin();
+  });
+  document.getElementById('adminResetBtn').addEventListener('click', resetBoard);
+  document.getElementById('adminLogoutBtn').addEventListener('click', logoutAdmin);
+  document.getElementById('adminPanelClose').addEventListener('click', goHome);
+  document.getElementById('captureViewBack').addEventListener('click', openAdminPanel);
   document.getElementById('homeFromDetail').addEventListener('click', goHome);
   document.getElementById('homeFromWrite').addEventListener('click', goHome);
 
