@@ -264,6 +264,12 @@
     from{opacity:0; transform:translateY(14px) scale(0.92) rotate(var(--rot));}
     to{opacity:1; transform:translateY(0) scale(1) rotate(var(--rot));}
   }
+  /* used briefly while html2canvas captures the board, so posts don't get caught mid-fade-in */
+  .board.capturing .postit{
+    animation:none !important;
+    opacity:1 !important;
+    transform:rotate(var(--rot)) !important;
+  }
   .postit:hover{
     transform:rotate(0deg) scale(1.05) translateY(-4px) !important;
     box-shadow:5px 10px 22px rgba(0,0,0,0.4);
@@ -1017,6 +1023,9 @@
     const noteCount = allNotes.length;
 
     let imageDataUrl;
+    boardEl.classList.add('capturing');
+    // give the browser a couple of frames to apply the "no animation" state before snapshotting
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try{
       const canvas = await html2canvas(boardEl, {
         backgroundColor: '#8a5a34',
@@ -1027,8 +1036,10 @@
     }catch(e){
       console.error('화면 캡처 실패', e);
       alert('화면 캡처 중 문제가 생겼어요:\n' + (e.message || e));
+      boardEl.classList.remove('capturing');
       return;
     }
+    boardEl.classList.remove('capturing');
 
     const captureResult = await insertCapture(capturedAt, noteCount, imageDataUrl);
     if(!captureResult.ok){
