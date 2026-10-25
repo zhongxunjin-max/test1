@@ -2,6 +2,11 @@ package com.example.videoeditor.model
 
 const val MIN_CLIP_MS = 500L
 
+enum class Filter { ORIGINAL, MONO, SEPIA, WARM, COOL, VIVID }
+
+/** Transition into a clip from the previous one; ignored on the first clip. */
+enum class Transition { NONE, FADE, SLIDE, ZOOM }
+
 data class Clip(
     val id: Long,
     val uri: String,
@@ -9,6 +14,8 @@ data class Clip(
     val startMs: Long = 0L,
     val endMs: Long = durationMs,
     val caption: String = "",
+    val filter: Filter = Filter.ORIGINAL,
+    val transition: Transition = Transition.NONE,
 ) {
     val trimmedMs: Long get() = endMs - startMs
 }

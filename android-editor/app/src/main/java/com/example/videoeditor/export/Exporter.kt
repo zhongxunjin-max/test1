@@ -6,6 +6,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.text.SpannableString
 import android.net.Uri
+import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.effect.OverlayEffect
@@ -20,6 +21,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.example.videoeditor.model.Clip
+import com.example.videoeditor.model.Transition
 import com.google.common.collect.ImmutableList
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -49,7 +51,7 @@ class Exporter(private val context: Context) {
         withContext(Dispatchers.Main) {
             val output = File(context.cacheDir, "export_${System.currentTimeMillis()}.mp4")
             val composition = Composition.Builder(
-                EditedMediaItemSequence(clips.map { it.toEditedMediaItem() })
+                EditedMediaItemSequence(clips.toEditedMediaItems())
             ).build()
 
             val finished = CompletableDeferred<Unit>()
@@ -101,15 +103,33 @@ class Exporter(private val context: Context) {
             withContext(Dispatchers.IO) { saveToGallery(output) }
         }
 
-    private fun Clip.toEditedMediaItem(): EditedMediaItem {
-        val videoEffects = if (caption.isBlank()) {
-            emptyList()
-        } else {
-            val settings = OverlaySettings.Builder()
-                .setBackgroundFrameAnchor(0f, -0.8f)
-                .build()
-            val overlay = TextOverlay.createStaticTextOverlay(SpannableString(caption), settings)
-            listOf(OverlayEffect(ImmutableList.of(overlay)))
+    private fun List<Clip>.toEditedMediaItems(): List<EditedMediaItem> {
+        var offsetUs = 0L
+        return mapIndexed { index, clip ->
+            val transitionIn = if (index > 0) clip.transition else Transition.NONE
+            val transitionOut = getOrNull(index + 1)?.transition ?: Transition.NONE
+            val item = clip.toEditedMediaItem(transitionIn, transitionOut, offsetUs)
+            offsetUs += clip.trimmedMs * 1000
+            item
+        }
+    }
+
+    private fun Clip.toEditedMediaItem(
+        transitionIn: Transition,
+        transitionOut: Transition,
+        offsetUs: Long,
+    ): EditedMediaItem {
+        val videoEffects = buildList<Effect> {
+            addAll(filter.toEffects())
+            if (caption.isNotBlank()) {
+                val settings = OverlaySettings.Builder()
+                    .setBackgroundFrameAnchor(0f, -0.8f)
+                    .build()
+                val overlay = TextOverlay.createStaticTextOverlay(SpannableString(caption), settings)
+                add(OverlayEffect(ImmutableList.of(overlay)))
+            }
+            addAll(transitionEffects(transitionIn, isIn = true, trimmedMs, offsetUs))
+            addAll(transitionEffects(transitionOut, isIn = false, trimmedMs, offsetUs))
         }
         return EditedMediaItem.Builder(toMediaItem())
             .setEffects(Effects(emptyList(), videoEffects))

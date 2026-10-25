@@ -9,6 +9,8 @@ import com.example.videoeditor.export.Exporter
 import com.example.videoeditor.model.Clip
 import com.example.videoeditor.model.EditorState
 import com.example.videoeditor.model.ExportState
+import com.example.videoeditor.model.Filter
+import com.example.videoeditor.model.Transition
 import com.example.videoeditor.model.moved
 import com.example.videoeditor.model.withTrim
 import kotlinx.coroutines.CancellationException
@@ -47,6 +49,10 @@ class EditorViewModel(application: Application) : AndroidViewModel(application) 
     fun setTrim(id: Long, startMs: Long, endMs: Long) = updateClip(id) { it.withTrim(startMs, endMs) }
 
     fun setCaption(id: Long, caption: String) = updateClip(id) { it.copy(caption = caption) }
+
+    fun setFilter(id: Long, filter: Filter) = updateClip(id) { it.copy(filter = filter) }
+
+    fun setTransition(id: Long, transition: Transition) = updateClip(id) { it.copy(transition = transition) }
 
     fun move(id: Long, delta: Int) = _state.update { it.copy(clips = it.clips.moved(id, delta)) }
 

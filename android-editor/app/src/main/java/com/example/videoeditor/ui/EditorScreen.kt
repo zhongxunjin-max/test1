@@ -8,15 +8,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -45,9 +50,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import com.example.videoeditor.EditorViewModel
 import com.example.videoeditor.R
+import com.example.videoeditor.export.toEffects
 import com.example.videoeditor.export.toMediaItem
 import com.example.videoeditor.model.Clip
 import com.example.videoeditor.model.ExportState
+import com.example.videoeditor.model.Filter
+import com.example.videoeditor.model.Transition
 import com.example.videoeditor.model.formatMs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +104,9 @@ fun EditorScreen(viewModel: EditorViewModel = viewModel()) {
             state.selected?.let { clip ->
                 ClipControls(
                     clip = clip,
+                    isFirst = state.clips.firstOrNull()?.id == clip.id,
+                    onFilter = { viewModel.setFilter(clip.id, it) },
+                    onTransition = { viewModel.setTransition(clip.id, it) },
                     onTrim = { s, e -> viewModel.setTrim(clip.id, s, e) },
                     onCaption = { viewModel.setCaption(clip.id, it) },
                     onMove = { viewModel.move(clip.id, it) },
@@ -111,6 +122,9 @@ private fun PreviewPlayer(clip: Clip?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val player = remember { ExoPlayer.Builder(context).build() }
     DisposableEffect(player) { onDispose { player.release() } }
+    LaunchedEffect(clip?.filter) {
+        player.setVideoEffects(clip?.filter?.toEffects().orEmpty())
+    }
     LaunchedEffect(clip?.id, clip?.startMs, clip?.endMs) {
         if (clip == null) {
             player.clearMediaItems()
@@ -173,9 +187,13 @@ private fun Timeline(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ClipControls(
     clip: Clip,
+    isFirst: Boolean,
+    onFilter: (Filter) -> Unit,
+    onTransition: (Transition) -> Unit,
     onTrim: (Long, Long) -> Unit,
     onCaption: (String) -> Unit,
     onMove: (Int) -> Unit,
@@ -185,7 +203,10 @@ private fun ClipControls(
     var range by remember(clip.id, clip.startMs, clip.endMs) {
         mutableStateOf(clip.startMs.toFloat()..clip.endMs.toFloat())
     }
-    Column(Modifier.padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Text(
             stringResource(
                 R.string.trim_range,
@@ -199,6 +220,27 @@ private fun ClipControls(
             valueRange = 0f..clip.durationMs.toFloat(),
             onValueChangeFinished = { onTrim(range.start.toLong(), range.endInclusive.toLong()) },
         )
+        Text(stringResource(R.string.filter_title))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(Filter.entries) { filter ->
+                FilterChip(
+                    selected = clip.filter == filter,
+                    onClick = { onFilter(filter) },
+                    label = { Text(stringResource(filter.labelRes())) },
+                )
+            }
+        }
+        Text(stringResource(if (isFirst) R.string.transition_first_clip else R.string.transition_title))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(Transition.entries) { transition ->
+                FilterChip(
+                    selected = clip.transition == transition && !isFirst,
+                    onClick = { onTransition(transition) },
+                    enabled = !isFirst,
+                    label = { Text(stringResource(transition.labelRes())) },
+                )
+            }
+        }
         OutlinedTextField(
             value = clip.caption,
             onValueChange = onCaption,
@@ -212,4 +254,22 @@ private fun ClipControls(
             OutlinedButton(onClick = onRemove) { Text(stringResource(R.string.remove)) }
         }
     }
+}
+
+@StringRes
+private fun Filter.labelRes(): Int = when (this) {
+    Filter.ORIGINAL -> R.string.filter_original
+    Filter.MONO -> R.string.filter_mono
+    Filter.SEPIA -> R.string.filter_sepia
+    Filter.WARM -> R.string.filter_warm
+    Filter.COOL -> R.string.filter_cool
+    Filter.VIVID -> R.string.filter_vivid
+}
+
+@StringRes
+private fun Transition.labelRes(): Int = when (this) {
+    Transition.NONE -> R.string.transition_none
+    Transition.FADE -> R.string.transition_fade
+    Transition.SLIDE -> R.string.transition_slide
+    Transition.ZOOM -> R.string.transition_zoom
 }
