@@ -21,6 +21,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
 import com.example.videoeditor.model.Clip
+import com.example.videoeditor.model.MusicTrack
 import com.example.videoeditor.model.Transition
 import com.google.common.collect.ImmutableList
 import java.io.File
@@ -47,12 +48,20 @@ fun Clip.toMediaItem(): MediaItem =
 /** Renders the timeline to an MP4 with Media3 Transformer and saves it to Movies/VideoEditor. */
 class Exporter(private val context: Context) {
 
-    suspend fun export(clips: List<Clip>, onProgress: (Float) -> Unit): Uri =
+    suspend fun export(
+        clips: List<Clip>,
+        music: MusicTrack?,
+        originalVolume: Float,
+        onProgress: (Float) -> Unit,
+    ): Uri =
         withContext(Dispatchers.Main) {
             val output = File(context.cacheDir, "export_${System.currentTimeMillis()}.mp4")
-            val composition = Composition.Builder(
-                EditedMediaItemSequence(clips.toEditedMediaItems())
-            ).build()
+            // The music sequence loops, so it is repeated or cut to the video length.
+            val sequences = buildList {
+                add(EditedMediaItemSequence(clips.toEditedMediaItems(originalVolume)))
+                if (music != null) add(EditedMediaItemSequence(listOf(music.toEditedMediaItem()), true))
+            }
+            val composition = Composition.Builder(sequences).build()
 
             val finished = CompletableDeferred<Unit>()
             val transformer = Transformer.Builder(context)
@@ -103,12 +112,18 @@ class Exporter(private val context: Context) {
             withContext(Dispatchers.IO) { saveToGallery(output) }
         }
 
-    private fun List<Clip>.toEditedMediaItems(): List<EditedMediaItem> {
+    private fun MusicTrack.toEditedMediaItem(): EditedMediaItem =
+        EditedMediaItem.Builder(MediaItem.fromUri(Uri.parse(uri)))
+            .setRemoveVideo(true)
+            .setEffects(Effects(volumeProcessors(volume), emptyList()))
+            .build()
+
+    private fun List<Clip>.toEditedMediaItems(originalVolume: Float): List<EditedMediaItem> {
         var offsetUs = 0L
         return mapIndexed { index, clip ->
             val transitionIn = if (index > 0) clip.transition else Transition.NONE
             val transitionOut = getOrNull(index + 1)?.transition ?: Transition.NONE
-            val item = clip.toEditedMediaItem(transitionIn, transitionOut, offsetUs)
+            val item = clip.toEditedMediaItem(transitionIn, transitionOut, offsetUs, originalVolume)
             offsetUs += clip.trimmedMs * 1000
             item
         }
@@ -118,6 +133,7 @@ class Exporter(private val context: Context) {
         transitionIn: Transition,
         transitionOut: Transition,
         offsetUs: Long,
+        originalVolume: Float,
     ): EditedMediaItem {
         val videoEffects = buildList<Effect> {
             addAll(filter.toEffects())
@@ -132,7 +148,7 @@ class Exporter(private val context: Context) {
             addAll(transitionEffects(transitionOut, isIn = false, trimmedMs, offsetUs))
         }
         return EditedMediaItem.Builder(toMediaItem())
-            .setEffects(Effects(emptyList(), videoEffects))
+            .setEffects(Effects(volumeProcessors(originalVolume), videoEffects))
             .build()
     }
 

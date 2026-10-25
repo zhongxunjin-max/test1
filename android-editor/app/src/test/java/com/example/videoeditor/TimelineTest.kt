@@ -6,6 +6,7 @@ import com.example.videoeditor.model.formatMs
 import com.example.videoeditor.model.moved
 import com.example.videoeditor.model.totalTrimmedMs
 import com.example.videoeditor.model.withTrim
+import com.example.videoeditor.model.clampVolume
 import com.example.videoeditor.model.edgeProgress
 import com.example.videoeditor.model.transitionDurationMs
 import org.junit.Assert.assertEquals
@@ -74,5 +75,12 @@ class TimelineTest {
     fun edgeProgressIsMonotonicWhileFadingIn() {
         val values = (0..500 step 50).map { edgeProgress(it.toLong(), 10_000, isIn = true) }
         assertTrue(values.zipWithNext().all { (a, b) -> a <= b })
+    }
+
+    @Test
+    fun volumeIsClampedToZeroAndOne() {
+        assertEquals(0f, clampVolume(-0.3f), 0f)
+        assertEquals(0.4f, clampVolume(0.4f), 0f)
+        assertEquals(1f, clampVolume(1.7f), 0f)
     }
 }

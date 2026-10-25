@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,6 +56,7 @@ import com.example.videoeditor.export.toMediaItem
 import com.example.videoeditor.model.Clip
 import com.example.videoeditor.model.ExportState
 import com.example.videoeditor.model.Filter
+import com.example.videoeditor.model.MusicTrack
 import com.example.videoeditor.model.Transition
 import com.example.videoeditor.model.formatMs
 
@@ -64,6 +66,9 @@ fun EditorScreen(viewModel: EditorViewModel = viewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) {
         viewModel.addClips(it)
+    }
+    val musicPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(viewModel::setMusic)
     }
     val exporting = state.export is ExportState.Running
 
@@ -101,17 +106,32 @@ fun EditorScreen(viewModel: EditorViewModel = viewModel()) {
                 onAdd = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
             )
 
-            state.selected?.let { clip ->
-                ClipControls(
-                    clip = clip,
-                    isFirst = state.clips.firstOrNull()?.id == clip.id,
-                    onFilter = { viewModel.setFilter(clip.id, it) },
-                    onTransition = { viewModel.setTransition(clip.id, it) },
-                    onTrim = { s, e -> viewModel.setTrim(clip.id, s, e) },
-                    onCaption = { viewModel.setCaption(clip.id, it) },
-                    onMove = { viewModel.move(clip.id, it) },
-                    onRemove = { viewModel.remove(clip.id) },
-                )
+            Column(
+                Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.selected?.let { clip ->
+                    ClipControls(
+                        clip = clip,
+                        isFirst = state.clips.firstOrNull()?.id == clip.id,
+                        onFilter = { viewModel.setFilter(clip.id, it) },
+                        onTransition = { viewModel.setTransition(clip.id, it) },
+                        onTrim = { s, e -> viewModel.setTrim(clip.id, s, e) },
+                        onCaption = { viewModel.setCaption(clip.id, it) },
+                        onMove = { viewModel.move(clip.id, it) },
+                        onRemove = { viewModel.remove(clip.id) },
+                    )
+                }
+                if (state.clips.isNotEmpty()) {
+                    AudioControls(
+                        music = state.music,
+                        originalVolume = state.originalVolume,
+                        onPickMusic = { musicPicker.launch(arrayOf("audio/*")) },
+                        onRemoveMusic = viewModel::removeMusic,
+                        onMusicVolume = viewModel::setMusicVolume,
+                        onOriginalVolume = viewModel::setOriginalVolume,
+                    )
+                }
             }
         }
     }
@@ -203,10 +223,7 @@ private fun ClipControls(
     var range by remember(clip.id, clip.startMs, clip.endMs) {
         mutableStateOf(clip.startMs.toFloat()..clip.endMs.toFloat())
     }
-    Column(
-        Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             stringResource(
                 R.string.trim_range,
@@ -272,4 +289,32 @@ private fun Transition.labelRes(): Int = when (this) {
     Transition.FADE -> R.string.transition_fade
     Transition.SLIDE -> R.string.transition_slide
     Transition.ZOOM -> R.string.transition_zoom
+}
+
+@Composable
+private fun AudioControls(
+    music: MusicTrack?,
+    originalVolume: Float,
+    onPickMusic: () -> Unit,
+    onRemoveMusic: () -> Unit,
+    onMusicVolume: (Float) -> Unit,
+    onOriginalVolume: (Float) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.music_title))
+        if (music == null) {
+            OutlinedButton(onClick = onPickMusic) { Text(stringResource(R.string.add_music)) }
+        } else {
+            Text(stringResource(R.string.music_label, music.name, formatMs(music.durationMs)))
+            Text(stringResource(R.string.music_volume, (music.volume * 100).toInt()))
+            Slider(value = music.volume, onValueChange = onMusicVolume)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onPickMusic) { Text(stringResource(R.string.change_music)) }
+                OutlinedButton(onClick = onRemoveMusic) { Text(stringResource(R.string.remove_music)) }
+            }
+            Text(stringResource(R.string.music_hint), style = MaterialTheme.typography.bodySmall)
+        }
+        Text(stringResource(R.string.original_volume, (originalVolume * 100).toInt()))
+        Slider(value = originalVolume, onValueChange = onOriginalVolume)
+    }
 }

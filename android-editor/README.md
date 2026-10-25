@@ -9,6 +9,8 @@ Kotlin + Jetpack Compose + Media3 skeleton for a simple mobile video editor.
 - Per-clip filters (B&W, sepia, warm, cool, vivid), previewed live and applied on export
 - Per-clip transition into the clip (fade, slide, zoom); these are "dip" transitions where each clip
   animates in/out on its own, not a cross-dissolve with the neighbouring clip
+- One background music track (any audio file) that loops or is cut to the video length, with volume
+  sliders for the music and for the clips' own audio; mixed in on export (no audio preview yet)
 - Per-clip text caption burned into the export (Media3 `TextOverlay`)
 - Export to `Movies/VideoEditor` as H.264/AAC MP4 (Media3 Transformer)
 
@@ -28,4 +30,4 @@ Requires JDK 17 and the Android SDK (platform 35).
 The `Android` GitHub Actions workflow runs the same command and uploads the debug APK.
 
 ## Not yet done
-Audio tracks, cross-dissolve transitions, caption timing and styling, thumbnails, project save/restore.
+Multiple audio tracks, music trimming and fades, cross-dissolve transitions, caption timing and styling, thumbnails, project save/restore.

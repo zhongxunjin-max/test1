@@ -20,6 +20,15 @@ data class Clip(
     val trimmedMs: Long get() = endMs - startMs
 }
 
+data class MusicTrack(
+    val uri: String,
+    val name: String,
+    val durationMs: Long,
+    val volume: Float = 1f,
+)
+
+fun clampVolume(volume: Float): Float = volume.coerceIn(0f, 1f)
+
 sealed interface ExportState {
     data object Idle : ExportState
     data class Running(val progress: Float) : ExportState
@@ -30,6 +39,9 @@ sealed interface ExportState {
 data class EditorState(
     val clips: List<Clip> = emptyList(),
     val selectedId: Long? = null,
+    val music: MusicTrack? = null,
+    /** Volume of the clips' own audio, 0..1. */
+    val originalVolume: Float = 1f,
     val export: ExportState = ExportState.Idle,
 ) {
     val selected: Clip? get() = clips.firstOrNull { it.id == selectedId }
