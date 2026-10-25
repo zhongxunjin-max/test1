@@ -6,7 +6,10 @@ import com.example.videoeditor.model.formatMs
 import com.example.videoeditor.model.moved
 import com.example.videoeditor.model.totalTrimmedMs
 import com.example.videoeditor.model.withTrim
+import com.example.videoeditor.model.edgeProgress
+import com.example.videoeditor.model.transitionDurationMs
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TimelineTest {
@@ -50,5 +53,26 @@ class TimelineTest {
     @Test
     fun formatsMinutesAndSeconds() {
         assertEquals("1:05", formatMs(65_400))
+    }
+
+    @Test
+    fun transitionNeverExceedsHalfTheClip() {
+        assertEquals(500L, transitionDurationMs(10_000))
+        assertEquals(300L, transitionDurationMs(600))
+    }
+
+    @Test
+    fun edgeProgressRampsAtStartAndEnd() {
+        assertEquals(0f, edgeProgress(0, 10_000, isIn = true), 1e-6f)
+        assertEquals(1f, edgeProgress(500, 10_000, isIn = true), 1e-6f)
+        assertEquals(1f, edgeProgress(5_000, 10_000, isIn = true), 1e-6f)
+        assertEquals(1f, edgeProgress(5_000, 10_000, isIn = false), 1e-6f)
+        assertEquals(0f, edgeProgress(10_000, 10_000, isIn = false), 1e-6f)
+    }
+
+    @Test
+    fun edgeProgressIsMonotonicWhileFadingIn() {
+        val values = (0..500 step 50).map { edgeProgress(it.toLong(), 10_000, isIn = true) }
+        assertTrue(values.zipWithNext().all { (a, b) -> a <= b })
     }
 }
