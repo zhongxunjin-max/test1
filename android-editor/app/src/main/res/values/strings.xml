@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">영상 편집기</string>
+    <string name="add_clips">클립 추가</string>
+    <string name="export">내보내기</string>
+    <string name="empty_hint">클립을 추가해 편집을 시작하세요</string>
+    <string name="trim_range">구간: %1$s – %2$s</string>
+    <string name="caption">자막</string>
+    <string name="move_left">앞으로</string>
+    <string name="move_right">뒤로</string>
+    <string name="remove">삭제</string>
+    <string name="exporting">내보내는 중… %1$d%%</string>
+    <string name="export_done">갤러리(Movies/VideoEditor)에 저장했습니다</string>
+    <string name="export_failed">내보내기 실패: %1$s</string>
+    <string name="clip_label">클립 %1$d · %2$s</string>
+</resources>
